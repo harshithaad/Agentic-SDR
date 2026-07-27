@@ -1,0 +1,66 @@
+# In-cluster Postgres for local clusters (kind / Docker Desktop).
+# In managed production this whole file is replaced by RDS/Cloud SQL/Supabase
+# and DATABASE_URL in the secret points there.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: agentic-sdr
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: agentic-sdr
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: sdr
+            - name: POSTGRES_PASSWORD
+              value: sdr
+            - name: POSTGRES_DB
+              value: sdr
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "sdr", "-d", "sdr"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

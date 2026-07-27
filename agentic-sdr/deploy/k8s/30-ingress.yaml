@@ -1,0 +1,30 @@
+# Requires an ingress controller (e.g. ingress-nginx). For kind/Docker Desktop
+# you can skip this file and use port-forward instead:
+#   kubectl -n agentic-sdr port-forward svc/frontend 5173:80
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sdr
+  namespace: agentic-sdr
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"   # SSE
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+spec:
+  rules:
+    - host: sdr.localtest.me
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

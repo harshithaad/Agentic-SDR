@@ -1,0 +1,38 @@
+# One active scheduler; a second replica would sit in hot standby behind the
+# Postgres advisory lock. Recreate strategy avoids two-leaders-for-a-moment
+# during rollouts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: agentic-sdr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: scheduler}
+  template:
+    metadata:
+      labels: {app: scheduler}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: scheduler
+          image: agentic-sdr-backend:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.scheduler"]
+          envFrom:
+            - configMapRef: {name: sdr-config}
+            - secretRef: {name: sdr-secrets}
+          ports:
+            - {containerPort: 9100, name: metrics}
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c",
+                        "[ $(( $(date +%s) - $(cat /tmp/sdr-heartbeat 2>/dev/null || echo 0) )) -lt 120 ]"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 50m, memory: 160Mi}
+            limits: {memory: 320Mi}

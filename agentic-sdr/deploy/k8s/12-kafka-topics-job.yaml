@@ -1,0 +1,32 @@
+# Topics are provisioned infrastructure with deliberate partition counts —
+# 6 partitions per command topic caps each stage at 6 parallel consumers,
+# messages are keyed by lead_id so per-lead ordering is guaranteed.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics-init
+  namespace: agentic-sdr
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: apache/kafka:3.9.1
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              cd /opt/kafka/bin
+              for t in sdr.cmd.research sdr.cmd.contact sdr.cmd.draft sdr.cmd.send sdr.cmd.classify; do
+                ./kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+                  --topic "$t" --partitions 6 --replication-factor 1
+              done
+              ./kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+                --topic sdr.evt.leads --partitions 6 --replication-factor 1 \
+                --config retention.ms=604800000
+              ./kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+                --topic sdr.dlq --partitions 3 --replication-factor 1 \
+                --config retention.ms=1209600000
+              echo "topics ready"

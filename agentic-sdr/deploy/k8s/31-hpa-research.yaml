@@ -1,0 +1,22 @@
+# Research is the CPU/latency-heavy stage (scrape + search + Claude).
+# Ceiling of 6 matches the topic's partition count — a 7th replica would sit
+# idle because Kafka assigns at most one consumer per partition per group.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-research
+  namespace: agentic-sdr
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-research
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

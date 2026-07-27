@@ -1,0 +1,176 @@
+# Five stage workers from one image. Replicas scale independently per stage —
+# partition count (6) is the parallelism ceiling per stage. Liveness is a
+# heartbeat file the poll loop touches every second; if the loop wedges for
+# 120 s the kubelet restarts the container.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-research
+  namespace: agentic-sdr
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: worker-research}
+  template:
+    metadata:
+      labels: {app: worker-research, tier: worker}
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: agentic-sdr-backend:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.workers.main", "research"]
+          envFrom:
+            - configMapRef: {name: sdr-config}
+            - secretRef: {name: sdr-secrets}
+          ports:
+            - containerPort: 9100
+              name: metrics
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c",
+                        "[ $(( $(date +%s) - $(cat /tmp/sdr-heartbeat 2>/dev/null || echo 0) )) -lt 120 ]"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {memory: 384Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-contact
+  namespace: agentic-sdr
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: worker-contact}
+  template:
+    metadata:
+      labels: {app: worker-contact, tier: worker}
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: agentic-sdr-backend:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.workers.main", "contact"]
+          envFrom:
+            - configMapRef: {name: sdr-config}
+            - secretRef: {name: sdr-secrets}
+          ports:
+            - {containerPort: 9100, name: metrics}
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c",
+                        "[ $(( $(date +%s) - $(cat /tmp/sdr-heartbeat 2>/dev/null || echo 0) )) -lt 120 ]"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 50m, memory: 160Mi}
+            limits: {memory: 320Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-draft
+  namespace: agentic-sdr
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: worker-draft}
+  template:
+    metadata:
+      labels: {app: worker-draft, tier: worker}
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: agentic-sdr-backend:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.workers.main", "draft"]
+          envFrom:
+            - configMapRef: {name: sdr-config}
+            - secretRef: {name: sdr-secrets}
+          ports:
+            - {containerPort: 9100, name: metrics}
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c",
+                        "[ $(( $(date +%s) - $(cat /tmp/sdr-heartbeat 2>/dev/null || echo 0) )) -lt 120 ]"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 50m, memory: 160Mi}
+            limits: {memory: 320Mi}
+---
+# Send stays at 1 replica by design: it serializes outbound mail, which keeps a
+# soft rate cap on the Gmail account. Scale only with a rate limiter in front.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-send
+  namespace: agentic-sdr
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: worker-send}
+  template:
+    metadata:
+      labels: {app: worker-send, tier: worker}
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: agentic-sdr-backend:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.workers.main", "send"]
+          envFrom:
+            - configMapRef: {name: sdr-config}
+            - secretRef: {name: sdr-secrets}
+          ports:
+            - {containerPort: 9100, name: metrics}
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c",
+                        "[ $(( $(date +%s) - $(cat /tmp/sdr-heartbeat 2>/dev/null || echo 0) )) -lt 120 ]"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 50m, memory: 160Mi}
+            limits: {memory: 320Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-classify
+  namespace: agentic-sdr
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: worker-classify}
+  template:
+    metadata:
+      labels: {app: worker-classify, tier: worker}
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: agentic-sdr-backend:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.workers.main", "classify"]
+          envFrom:
+            - configMapRef: {name: sdr-config}
+            - secretRef: {name: sdr-secrets}
+          ports:
+            - {containerPort: 9100, name: metrics}
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c",
+                        "[ $(( $(date +%s) - $(cat /tmp/sdr-heartbeat 2>/dev/null || echo 0) )) -lt 120 ]"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 50m, memory: 160Mi}
+            limits: {memory: 320Mi}
