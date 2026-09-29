@@ -2,7 +2,7 @@
 
 An AI sales development rep. Give it a CSV of companies and it researches each one, finds a decision-maker, writes a personalized cold email, sends it through Gmail, follows up after 72 hours, reads the reply, and drafts a meeting-booking email if the prospect is interested. Anything it isn't confident about goes to a human review queue.
 
-**Tech stack:** Python, FastAPI, Apache Kafka, PostgreSQL, React, Docker, Kubernetes, Claude / Gemini, Firecrawl, Serper, Hunter, Apollo, Gmail API
+**Tech stack:** Python, FastAPI, Apache Kafka, PostgreSQL, React, Docker, Kubernetes, Anthropic / Gemini, Firecrawl, Serper, Hunter, Apollo, Gmail API
 
 ## How it works
 
@@ -57,7 +57,7 @@ docker compose --env-file ../.env up --build -d
 Open http://localhost:5173, fill in the Profile tab, and upload a CSV with a `company_name` column (optionally `website`, `contact_email`, `contact_name`, `contact_role`). See `agentic-sdr/demo_leads.csv` for an example.
 
 - `APP_PROFILE=dev` runs without API keys; `APP_PROFILE=prod` won't start unless all keys are set.
-- `LLM_PROVIDER` can be `anthropic` (Claude) or `gemini`.
+- `LLM_PROVIDER` can be `anthropic` or `gemini`.
 - Kubernetes manifests are in `agentic-sdr/deploy/k8s/`.
 
 ## Tests

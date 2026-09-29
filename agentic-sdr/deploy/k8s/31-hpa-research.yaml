@@ -1,4 +1,4 @@
-# Research is the CPU/latency-heavy stage (scrape + search + Claude).
+# Research is the CPU/latency-heavy stage (scrape + search + LLM).
 # Ceiling of 6 matches the topic's partition count — a 7th replica would sit
 # idle because Kafka assigns at most one consumer per partition per group.
 apiVersion: autoscaling/v2

@@ -1,5 +1,5 @@
 """API service. Every mutation is a short transaction: guarded transition +
-outbox command. No route ever calls Claude, Gmail, or a scraper — heavy work
+outbox command. No route ever calls the LLM, Gmail, or a scraper — heavy work
 belongs to workers, so the API stays responsive no matter what the pipeline is
 doing. DB routes are sync `def` (FastAPI runs them on the threadpool);
 the event loop only handles SSE and health checks."""

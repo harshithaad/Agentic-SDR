@@ -55,7 +55,7 @@ def make_consumer(group_id: str, topics: Iterable[str],
         "group.id": group_id,
         "enable.auto.commit": False,
         "auto.offset.reset": "earliest",
-        # stage handlers call Claude/Gmail; allow slow processing without a rebalance
+        # stage handlers call the LLM/Gmail; allow slow processing without a rebalance
         "max.poll.interval.ms": 600_000,
         "session.timeout.ms": 45_000,
         "partition.assignment.strategy": "cooperative-sticky",

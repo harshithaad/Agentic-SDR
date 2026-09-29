@@ -18,7 +18,7 @@ drafted — with humans pulled in exactly where confidence or compliance demands
                                │ timers · gmail poll · bounce scan · reaper · outbox relay              │
                             scheduler (advisory-lock leader)                                            │
                                                                                                         │
- External: Anthropic Claude · Firecrawl · Serper · Hunter · Apollo · Gmail ─────────────────────────────┘
+ External: LLM (Anthropic/Gemini) · Firecrawl · Serper · Hunter · Apollo · Gmail ─────────────────────────────┘
 ```
 
 ## 1. The two-plane design
@@ -67,7 +67,7 @@ re-drives a wedged hot-path lead from its seed (safe: send-side guards live in
 zone 2; the cost is re-spent tokens).
 
 Accepted zone-1 trade-offs, stated plainly: a crash after the external calls
-but before the Kafka commit re-runs the stage on redelivery (re-pays Claude
+but before the Kafka commit re-runs the stage on redelivery (re-pays LLM
 tokens — there is no processed_events dedupe inside the stream, offsets ARE the
 dedupe); and in-flight dashboard statuses are eventually consistent by
 roughly a second via the projector.
@@ -130,7 +130,7 @@ NULL` is the pending-timer list).
 
 | Failure | Mechanism |
 |---|---|
-| Claude/HTTP transient errors | bounded exponential retries in-process (tenacity) |
+| LLM/HTTP transient errors | bounded exponential retries in-process (tenacity) |
 | DB or broker down | worker seeks back to the same offset, sleeps, retries — outage delays, never skips |
 | Poison message | DLQ (`sdr.dlq`) with stage + error headers; offset advances; partition never wedges |
 | Worker crash mid-message | offset not committed → redelivery → `processed_events` dedupe |

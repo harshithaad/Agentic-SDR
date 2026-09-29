@@ -13,10 +13,10 @@ STAGE_DURATION = Histogram(
     buckets=(0.1, 0.5, 1, 2, 5, 10, 20, 45, 90, 180),
 )
 LLM_TOKENS = Counter(
-    "sdr_llm_tokens_total", "Claude tokens used", ["prompt", "direction"],
+    "sdr_llm_tokens_total", "LLM tokens used", ["prompt", "direction"],
 )
 LLM_CALLS = Counter(
-    "sdr_llm_calls_total", "Claude API calls", ["prompt", "result"],
+    "sdr_llm_calls_total", "LLM API calls", ["prompt", "result"],
 )
 TRANSITIONS = Counter(
     "sdr_lead_transitions_total", "Lead state transitions", ["from_status", "to_status"],

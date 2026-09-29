@@ -38,10 +38,10 @@ class Settings(BaseSettings):
     GMAIL_REFRESH_TOKEN: str = ""
     GMAIL_SENDER_EMAIL: str = ""
 
-    CLAUDE_MODEL: str = "claude-sonnet-4-6"
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     # USD per million tokens — used to compute REAL cost from logged usage
-    CLAUDE_INPUT_PRICE_PER_MTOK: float = 3.00
-    CLAUDE_OUTPUT_PRICE_PER_MTOK: float = 15.00
+    LLM_INPUT_PRICE_PER_MTOK: float = 3.00
+    LLM_OUTPUT_PRICE_PER_MTOK: float = 15.00
 
     RESEARCH_MIN_CONFIDENCE: float = 0.65
     REPLY_AUTO_THRESHOLD: float = 0.80

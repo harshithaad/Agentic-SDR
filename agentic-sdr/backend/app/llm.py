@@ -3,7 +3,7 @@ token usage + latency and the caller logs them. Retries are bounded and
 exponential (tenacity); JSON is parsed defensively; there is deliberately no
 'one more call for luck' path — the old code made up to 9 API calls per draft.
 
-Provider is swappable (Anthropic Claude or Google Gemini) behind one interface
+Provider is swappable (Anthropic or Google Gemini) behind one interface
 — every stage handler calls complete_json/complete_text and never sees which
 provider answered. LLM_PROVIDER in config picks the backend; only this module
 knows both SDKs exist."""
@@ -166,7 +166,7 @@ def _call_anthropic(prompt_name: str, system: str, user: str, max_tokens: int) -
     started = time.monotonic()
     try:
         response = client.messages.create(
-            model=settings.CLAUDE_MODEL,
+            model=settings.ANTHROPIC_MODEL,
             max_tokens=max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
@@ -184,7 +184,7 @@ def _call_anthropic(prompt_name: str, system: str, user: str, max_tokens: int) -
     LLM_TOKENS.labels(prompt=prompt_name, direction="output").inc(usage.output_tokens)
     return LLMResult(
         parsed=response.content[0].text,
-        model=settings.CLAUDE_MODEL,
+        model=settings.ANTHROPIC_MODEL,
         input_tokens=usage.input_tokens,
         output_tokens=usage.output_tokens,
         latency_ms=latency_ms,

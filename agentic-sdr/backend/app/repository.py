@@ -363,8 +363,8 @@ def metrics(conn) -> Dict:
         "FROM agent_logs"
     ).fetchone()
     real_cost = (
-        usage["tin"] / 1_000_000 * settings.CLAUDE_INPUT_PRICE_PER_MTOK
-        + usage["tout"] / 1_000_000 * settings.CLAUDE_OUTPUT_PRICE_PER_MTOK
+        usage["tin"] / 1_000_000 * settings.LLM_INPUT_PRICE_PER_MTOK
+        + usage["tout"] / 1_000_000 * settings.LLM_OUTPUT_PRICE_PER_MTOK
     )
 
     return {
