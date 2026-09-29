@@ -11,7 +11,9 @@ interface Lead {
   employee_size_estimate?: string
   pain_points?: string[]
   recent_news?: string[]
-  research_confidence_score?: number
+  research_confidence?: number
+  review_reason?: string
+  booking_sent_at?: string
   contact_name?: string
   contact_email?: string
   contact_role?: string
@@ -39,6 +41,7 @@ export default function LeadDetail({ leadId, onClose }: Props) {
   const [editDraft, setEditDraft] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [bookingQueued, setBookingQueued] = useState(false)
 
   const fetchLead = async () => {
     try {
@@ -77,6 +80,8 @@ export default function LeadDetail({ leadId, onClose }: Props) {
   }
 
   const isReview = lead.status === 'HUMAN_REVIEW'
+  const hasDraft = Boolean(lead.email_body && lead.contact_email)
+  const alreadyEmailed = Boolean(lead.reply_text || lead.sent_at)
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4">
@@ -97,9 +102,10 @@ export default function LeadDetail({ leadId, onClose }: Props) {
 
         <div className="px-6 py-5 space-y-6">
           {/* Human Approval Warning */}
-          {lead.human_approval_required && (
+          {(lead.review_reason || lead.human_approval_required) && (
             <div className="bg-orange-950 border border-orange-700 rounded-xl p-4 text-orange-300 text-sm">
-              <strong>Human approval required.</strong> The AI could not produce a valid email draft after 2 attempts. Please review and edit before sending.
+              <strong>Escalated for human review.</strong>{' '}
+              {lead.review_reason || 'Awaiting human approval before any further action.'}
             </div>
           )}
 
@@ -125,8 +131,8 @@ export default function LeadDetail({ leadId, onClose }: Props) {
               <div className="bg-gray-800 rounded-lg p-3">
                 <p className="text-gray-500 text-xs mb-1">Research Confidence</p>
                 <p className="text-white">
-                  {lead.research_confidence_score != null
-                    ? `${(lead.research_confidence_score * 100).toFixed(0)}%`
+                  {lead.research_confidence != null
+                    ? `${(lead.research_confidence * 100).toFixed(0)}%`
                     : '—'}
                 </p>
               </div>
@@ -260,31 +266,83 @@ export default function LeadDetail({ leadId, onClose }: Props) {
               <div className="bg-teal-950 border border-teal-800 rounded-xl p-4 text-sm">
                 <pre className="whitespace-pre-wrap text-teal-200 font-sans leading-relaxed">{lead.booking_email_draft}</pre>
               </div>
+              {/* The system drafts the meeting email; a human sends it (spec §18.2) */}
+              <div className="mt-3 flex items-center gap-3">
+                {lead.booking_sent_at ? (
+                  <span className="text-sm text-teal-400">
+                    ✓ Sent {new Date(lead.booking_sent_at).toLocaleString()}
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => { setBookingQueued(true); handleAction('send_booking') }}
+                      disabled={submitting || bookingQueued}
+                      className="px-4 py-2 bg-teal-700 hover:bg-teal-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
+                    >
+                      {bookingQueued ? 'Sending…' : 'Send Meeting Email'}
+                    </button>
+                    <span className="text-xs text-gray-500">
+                      {bookingQueued
+                        // the click enqueues a command; the worker sends it a
+                        // moment later, so say so instead of looking inert
+                        ? 'Queued — the send worker is delivering it now.'
+                        : `Replies on the existing thread to ${lead.contact_email}`}
+                    </span>
+                  </>
+                )}
+              </div>
             </section>
           )}
 
-          {/* Human Review Actions */}
+          {/* Human Review Actions — which ones apply depends on WHY the lead
+              was escalated: a lead that already replied must not be re-sent a
+              cold email, and a lead with no draft has nothing to approve. */}
           {isReview && !editMode && (
             <section>
               <h3 className="text-xs uppercase text-orange-500 font-semibold tracking-wide mb-3">Human Review Required</h3>
+              {alreadyEmailed && (
+                <p className="text-xs text-gray-500 mb-3">
+                  This lead already received an email and replied — sending the original
+                  draft again is blocked. Reply directly from the inbox, or close the lead.
+                </p>
+              )}
+              {!hasDraft && !alreadyEmailed && (
+                <p className="text-xs text-gray-500 mb-3">
+                  No email draft exists yet (escalated before drafting). Retry research
+                  to generate one, or close the lead.
+                </p>
+              )}
               <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => handleAction('approve')}
-                  disabled={submitting}
-                  className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
-                >
-                  Approve & Send
-                </button>
-                <button
-                  onClick={() => {
-                    setEditDraft(`${lead.subject_line || ''}\n\n${lead.email_body || ''}`)
-                    setEditMode(true)
-                  }}
-                  disabled={submitting}
-                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
-                >
-                  Edit Draft
-                </button>
+                {hasDraft && !alreadyEmailed && (
+                  <button
+                    onClick={() => handleAction('approve')}
+                    disabled={submitting}
+                    className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
+                  >
+                    Approve &amp; Send
+                  </button>
+                )}
+                {hasDraft && !alreadyEmailed && (
+                  <button
+                    onClick={() => {
+                      setEditDraft(`${lead.subject_line || ''}\n\n${lead.email_body || ''}`)
+                      setEditMode(true)
+                    }}
+                    disabled={submitting}
+                    className="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
+                  >
+                    Edit Draft
+                  </button>
+                )}
+                {!hasDraft && !alreadyEmailed && (
+                  <button
+                    onClick={() => handleAction('retry_research')}
+                    disabled={submitting}
+                    className="px-4 py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-sm rounded-lg font-medium transition-colors"
+                  >
+                    Retry Research
+                  </button>
+                )}
                 <button
                   onClick={() => handleAction('skip')}
                   disabled={submitting}

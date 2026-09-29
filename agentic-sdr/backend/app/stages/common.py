@@ -82,6 +82,36 @@ def sensitive_keywords_in(text: str):
     return [kw for kw in SENSITIVE_KEYWORDS if kw in lower]
 
 
+# Mail clients quote the message being replied to. Our own outreach ends with
+# "To opt out, reply STOP." — so analysing the raw reply makes every quoted
+# reply look like an opt-out. Everything below the first quote marker belongs to
+# us, not the prospect, and must be removed before any rule or model sees it.
+_QUOTE_HEADERS = (
+    re.compile(r"^\s*On .{0,120}\bwrote:\s*$", re.IGNORECASE | re.MULTILINE),
+    re.compile(r"^\s*-{2,}\s*Original Message\s*-{2,}\s*$", re.IGNORECASE | re.MULTILINE),
+    re.compile(r"^\s*_{5,}\s*$", re.MULTILINE),
+    re.compile(r"^\s*From:\s.+$", re.IGNORECASE | re.MULTILINE),
+    re.compile(r"^\s*Sent from my \w+", re.IGNORECASE | re.MULTILINE),
+)
+
+
+def strip_quoted_reply(text: str) -> str:
+    """Return only the text the sender newly wrote."""
+    if not text:
+        return ""
+    cut = len(text)
+    for pattern in _QUOTE_HEADERS:
+        match = pattern.search(text)
+        if match and match.start() < cut:
+            cut = match.start()
+    body = text[:cut]
+    # drop any residual quoted lines (">" prefixed) and trailing blank space
+    body = "\n".join(
+        line for line in body.splitlines() if not line.lstrip().startswith(">")
+    )
+    return body.strip()
+
+
 def park_for_review(conn, lead: Dict, by: str, reason: str,
                     trace_id: Optional[str] = None, **fields) -> None:
     """Best-effort move to HUMAN_REVIEW; concurrent supersession is not an error."""

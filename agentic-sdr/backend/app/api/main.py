@@ -92,6 +92,17 @@ def upload_leads(file: UploadFile = File(...)):
                 skipped.append({"row": i, "reason": "empty company_name"})
                 continue
             website = (row.get("website") or "").strip() or None
+            # Optional known-contact columns: when the operator already knows who
+            # to reach, discovery is skipped (saves provider quota and lets a
+            # batch target a controlled inbox). Contact discovery is a fallback,
+            # not a requirement.
+            seed_contact = {
+                k: v for k, v in (
+                    ("contact_email", (row.get("contact_email") or "").strip()),
+                    ("contact_name", (row.get("contact_name") or "").strip()),
+                    ("contact_role", (row.get("contact_role") or "").strip()),
+                ) if v
+            }
             with conn.transaction():
                 lead = repository.create_lead(conn, company, website, batch_id)
                 if lead is None:
@@ -104,7 +115,8 @@ def upload_leads(file: UploadFile = File(...)):
                 # zone-1 commands are event-carried: seed + seller context ride along
                 cmd = events.make_message(
                     events.CMD_RESEARCH_LEAD, lead_id,
-                    {"company_name": company, "website": website, "seller": seller},
+                    {"company_name": company, "website": website, "seller": seller,
+                     **seed_contact},
                 )
                 repository.outbox_add(conn, events.CMD_TOPICS["research"], lead_id, cmd)
                 created.append(lead_id)
@@ -156,6 +168,18 @@ def human_action(lead_id: str, body: HumanAction):
                     )
                     cmd = events.make_message(
                         events.CMD_SEND_EMAIL, lead_id, {"kind": "initial"}
+                    )
+                    repository.outbox_add(conn, events.CMD_TOPICS["send"], lead_id, cmd)
+                elif body.action == "send_booking":
+                    if from_status != "BOOKING_DRAFTED":
+                        raise HTTPException(
+                            422, f"booking email can only be sent from BOOKING_DRAFTED "
+                                 f"(lead is {from_status})"
+                        )
+                    if lead.get("booking_sent_at"):
+                        raise HTTPException(409, "booking email already sent")
+                    cmd = events.make_message(
+                        events.CMD_SEND_EMAIL, lead_id, {"kind": "booking"}
                     )
                     repository.outbox_add(conn, events.CMD_TOPICS["send"], lead_id, cmd)
                 elif body.action in ("skip", "close"):

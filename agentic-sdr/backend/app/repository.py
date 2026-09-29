@@ -371,8 +371,11 @@ def metrics(conn) -> Dict:
         "total_leads": total,
         "in_progress": sum(n for s, n in counts.items() if s not in terminal),
         "emails_sent": sum(n for s, n in counts.items() if s in sent_statuses),
-        "replies": sum(n for s, n in counts.items()
-                       if s in {"REPLY_RECEIVED", "INTERESTED", "BOOKING_DRAFTED"}),
+        # count actual replies, not current status — a replied lead may since
+        # have moved to CLOSED_LOST (opt-out) or HUMAN_REVIEW (escalated)
+        "replies": conn.execute(
+            "SELECT count(*) AS n FROM leads WHERE reply_text IS NOT NULL"
+        ).fetchone()["n"],
         "meetings_booked": counts.get("BOOKING_DRAFTED", 0),
         "pending_review": counts.get("HUMAN_REVIEW", 0),
         "status_breakdown": counts,

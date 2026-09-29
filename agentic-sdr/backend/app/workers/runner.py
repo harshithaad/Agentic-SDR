@@ -17,8 +17,8 @@ Both modes: infra failures seek back and retry (outage delays, never loses);
 poison messages go to the DLQ so a partition can never wedge; SIGTERM finishes
 the in-flight message and leaves the group cleanly.
 """
+import os
 import signal
-import socket
 import time
 from typing import Dict
 
@@ -75,7 +75,13 @@ def run_worker(stage: str) -> None:
 # ─── zone 1: EOS streaming loop ───────────────────────────────────────────────
 
 def _run_eos(stage: str, spec: dict, topic: str, log) -> None:
-    tid = f"sdr-{stage}-{socket.gethostname()}"
+    # transactional.id MUST be stable across restarts: on startup the producer
+    # fences any transaction left open by its predecessor with the same id.
+    # Derive it from hostname and a container rebuild silently changes it —
+    # the zombie's transactions then linger until Kafka's timeout, and
+    # read_committed consumers stall behind the last stable offset.
+    # WORKER_INSTANCE distinguishes replicas (k8s: use the StatefulSet ordinal).
+    tid = f"sdr-{stage}-{os.getenv('WORKER_INSTANCE', '0')}"
     producer = kafka_bus.make_transactional_producer(tid)
     consumer = kafka_bus.make_consumer(spec["group"], [topic], read_committed=True)
     log.info("worker_started", topic=topic, group=spec["group"], mode="eos",

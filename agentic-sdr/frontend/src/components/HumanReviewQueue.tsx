@@ -123,19 +123,14 @@ export default function HumanReviewQueue({ onSelectLead, eventTick = 0 }: Props)
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions — the queue only offers what is valid for this lead;
+              full context and editing live in the detail panel. */}
           <div className="flex gap-2 mt-4 flex-wrap">
-            <button
-              onClick={() => handleAction(lead.id, 'approve')}
-              className="px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors"
-            >
-              Approve & Send
-            </button>
             <button
               onClick={() => onSelectLead(lead.id)}
               className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-medium rounded-lg transition-colors"
             >
-              Edit Draft
+              Review &amp; Decide
             </button>
             <button
               onClick={() => handleAction(lead.id, 'skip')}

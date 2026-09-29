@@ -23,7 +23,19 @@ def handle(message: Dict) -> Union[Produce, Park]:
 
     found: Optional[Dict] = None
     errors = []
-    if domain:
+
+    # A contact supplied at upload wins: discovery exists to find unknown
+    # contacts, not to second-guess known ones. Also spares provider quota.
+    if carried.get("contact_email"):
+        found = {
+            "contact_email": carried["contact_email"],
+            "contact_name": carried.get("contact_name") or "",
+            "contact_role": carried.get("contact_role") or "",
+            "contact_source": "provided",
+        }
+        log.info("contact_provided", lead_id=lead_id)
+
+    if not found and domain:
         try:
             found = contacts.hunter_verified_contact(domain)
         except httpx.HTTPError as e:

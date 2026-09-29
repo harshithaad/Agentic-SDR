@@ -49,7 +49,20 @@ def handle(message: Dict) -> Union[Produce, Park]:
     )
 
     try:
-        result = llm.complete_json("research", prompts.RESEARCH_SYSTEM, user_msg, max_tokens=1024)
+        result = llm.complete_json("research", prompts.RESEARCH_SYSTEM, user_msg, max_tokens=2048)
+    except llm.LLMTransientError as e:
+        # Provider overload / rate limit that outlived our retries. The lead is
+        # fine — the upstream is not. Park it as recoverable so a human (or the
+        # retry_research action) can re-drive it, rather than burying a good
+        # lead in a terminal state because a model had a bad minute.
+        return Park(
+            to_status="HUMAN_REVIEW",
+            fields={"human_approval_required": True,
+                    "review_reason": f"research provider unavailable — retryable: {str(e)[:200]}",
+                    "error_message": str(e)[:500]},
+            log_action="structure_research", log_status="provider_unavailable",
+            log_details={"error": str(e)[:500], "retryable": True},
+        )
     except Exception as e:
         return Park(
             to_status="RESEARCH_FAILED",

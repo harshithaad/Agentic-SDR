@@ -24,6 +24,8 @@ def handle(message: Dict) -> None:
     kind = (message.get("data") or {}).get("kind", "initial")
     if kind == "follow_up":
         _handle_follow_up(message)
+    elif kind == "booking":
+        _handle_booking(message)
     else:
         _handle_initial(message)
 
@@ -105,6 +107,53 @@ def _handle_initial(message: Dict) -> None:
             details={"to": email, "gmail_message_id": sent["message_id"],
                      "rfc_message_id": sent["rfc_message_id"]},
         )
+
+
+def _handle_booking(message: Dict) -> None:
+    """Deliver the meeting-booking draft as a reply on the existing thread.
+    A human explicitly asked for this, so the resend window does not apply —
+    but the suppression list always does."""
+    lead_id = message["lead_id"]
+    trace_id = message.get("trace_id")
+    lead = load_lead_for_stage(lead_id, "BOOKING_DRAFTED")
+
+    if lead.get("booking_sent_at"):
+        raise SkipMessage(f"lead {lead_id}: booking email already sent")
+    body = (lead.get("booking_email_draft") or "").strip()
+    if not body:
+        raise SkipMessage(f"lead {lead_id}: no booking draft to send")
+
+    email = (lead.get("contact_email") or "").strip()
+    if not EMAIL_REGEX.match(email):
+        raise SkipMessage(f"lead {lead_id}: malformed address {email!r}")
+    with tx() as conn:
+        if repository.is_suppressed(conn, email):
+            raise SkipMessage(f"lead {lead_id}: address suppressed")
+
+    sent = gmail.send_email(
+        to=email,
+        subject=f"Re: {lead.get('subject_line') or ''}",
+        body=body,
+        in_reply_to_rfc_id=lead.get("rfc_message_id") or None,
+        thread_id=lead.get("gmail_thread_id") or None,
+    )
+
+    with tx() as conn:
+        if not repository.try_mark_processed(conn, message["event_id"], GROUP):
+            return
+        # BOOKING_DRAFTED is terminal; record delivery without a state change
+        conn.execute(
+            "UPDATE leads SET booking_sent_at = now(), version = version + 1 "
+            "WHERE id = %s AND booking_sent_at IS NULL",
+            (lead_id,),
+        )
+        repository.log_agent_action(
+            conn, lead_id, "send", "send_booking_email", "success",
+            status_before="BOOKING_DRAFTED", status_after="BOOKING_DRAFTED",
+            details={"gmail_message_id": sent["message_id"], "to": email,
+                     "trace_id": trace_id},
+        )
+        log.info("booking_email_sent", lead_id=lead_id, to=email)
 
 
 def _handle_follow_up(message: Dict) -> None:

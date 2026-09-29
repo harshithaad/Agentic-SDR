@@ -56,7 +56,7 @@ UPDATABLE_COLUMNS: Set[str] = {
     "human_approval_required", "review_reason", "gmail_message_id", "gmail_thread_id",
     "rfc_message_id", "sent_at", "follow_up_sent_at", "reply_text", "reply_received_at",
     "intent", "intent_confidence", "intent_reasoning", "booking_email_draft",
-    "error_message", "next_action_at", "claimed_at", "retry_count",
+    "booking_sent_at", "error_message", "next_action_at", "claimed_at", "retry_count",
 }
 
 

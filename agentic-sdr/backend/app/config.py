@@ -16,7 +16,19 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://sdr:sdr@localhost:5432/sdr"
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
 
+    # LLM provider: "anthropic" (paid, prepaid credits) or "gemini" (Google AI
+    # Studio free tier — no card, no phone verification as of this writing).
+    LLM_PROVIDER: str = "anthropic"
     ANTHROPIC_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    # Hard ceiling per LLM request (ms). Must stay well below the consumer's
+    # max.poll.interval.ms (600 000) or a hung call evicts the worker.
+    LLM_TIMEOUT_MS: int = 90_000
+    # Free tiers meter by requests-per-minute (Gemini free = 20 RPM). Pace calls
+    # in-process so we degrade to "slower" instead of "throttled and retrying",
+    # which wastes the very quota it is competing for.
+    LLM_MIN_INTERVAL_MS: int = 4_000
     FIRECRAWL_API_KEY: str = ""
     SERPER_API_KEY: str = ""
     HUNTER_API_KEY: str = ""
@@ -53,7 +65,7 @@ class Settings(BaseSettings):
     SEED_DEMO_DATA: bool = False
 
     REQUIRED_IN_PROD: ClassVar[Tuple[str, ...]] = (
-        "ANTHROPIC_API_KEY", "FIRECRAWL_API_KEY", "SERPER_API_KEY", "HUNTER_API_KEY",
+        "FIRECRAWL_API_KEY", "SERPER_API_KEY", "HUNTER_API_KEY",
         "GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN", "GMAIL_SENDER_EMAIL",
     )
 
@@ -61,6 +73,9 @@ class Settings(BaseSettings):
         if self.APP_PROFILE != "prod":
             return
         missing = [k for k in self.REQUIRED_IN_PROD if not getattr(self, k)]
+        llm_key = self.GEMINI_API_KEY if self.LLM_PROVIDER == "gemini" else self.ANTHROPIC_API_KEY
+        if not llm_key:
+            missing.append(f"{self.LLM_PROVIDER.upper()}_API_KEY")
         if missing:
             sys.stderr.write(
                 f"FATAL: APP_PROFILE=prod but required settings are empty: {', '.join(missing)}\n"

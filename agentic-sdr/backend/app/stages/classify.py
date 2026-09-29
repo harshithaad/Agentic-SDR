@@ -12,7 +12,8 @@ from app import events, llm, prompts, repository
 from app.config import settings
 from app.logging_setup import get_logger
 from app.stages.common import (AI_QUESTION_REGEX, OPT_OUT_REGEX,
-                               load_lead_for_stage, sensitive_keywords_in, tx)
+                               load_lead_for_stage, sensitive_keywords_in,
+                               strip_quoted_reply, tx)
 from app.transitions import TransitionConflict
 
 log = get_logger(stage="classify")
@@ -25,7 +26,11 @@ def handle(message: Dict) -> None:
     lead_id = message["lead_id"]
     trace_id = message.get("trace_id")
     lead = load_lead_for_stage(lead_id, "REPLY_RECEIVED")
-    reply = (lead.get("reply_text") or "").strip()
+    # analyse only what the prospect wrote — never our own quoted email
+    reply = strip_quoted_reply(lead.get("reply_text") or "")
+    if not reply:
+        log.warning("empty_reply_after_quote_strip", lead_id=lead_id)
+        reply = (lead.get("reply_text") or "").strip()[:500]
 
     # 1. deterministic opt-out
     if OPT_OUT_REGEX.search(reply):

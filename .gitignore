@@ -1,1 +1,13 @@
 agentic-sdr/.env 
+
+# build / local artifacts
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+*.mp4
+push_error.txt
+
+.claude/
+*.docx
+unpacked_spec/

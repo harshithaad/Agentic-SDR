@@ -79,7 +79,9 @@ def handle(message: Dict) -> None:
             f"Fix exactly that problem and return corrected JSON."
         )
         try:
-            result = llm.complete_json("email_writer", prompts.EMAIL_WRITER_SYSTEM, user_msg)
+            result = llm.complete_json(
+                "email_writer", prompts.EMAIL_WRITER_SYSTEM, user_msg, max_tokens=2048
+            )
         except Exception as e:
             reason = f"llm error: {e}"
             break
